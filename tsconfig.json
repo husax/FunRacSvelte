@@ -1,0 +1,6 @@
+{
+  "extends": "./node_modules/@tsconfig/svelte/tsconfig.json",
+
+  "include": ["src/**/*", "public/cajaMq.js"],
+  "exclude": ["node_modules/*", "__sapper__/*", "public/*"]
+}
