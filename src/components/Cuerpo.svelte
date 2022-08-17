@@ -1,17 +1,20 @@
 <script>
+  import {
+    brd,
+    funRac,
+    latexFun,
+    muestra,
+    idRaices,
+    idObjs,
+    idFuns,
+    reqid
+  } from "../tools/Almacen";
   import { Col, Container, Row, Button } from "sveltestrap";
   import CajaMath from "./CajaMath.svelte";
   import MsgModal from "./MsgModal.svelte";
   import JXGBoard from "./JsxBoard.svelte";
   import Acordeon from "./Acordeon.svelte";
-  import {
-    brd,
-    latexFun,
-    muestra,
-    idRaices,
-    marcado,
-    marcadoT,
-  } from "../tools/Almacen";
+  
   import TeXToLinealPyt from "../tools/TeXToLineal";
   import InfijaAPolaca from "../tools/InfAPolInvCls";
   import {
@@ -23,14 +26,15 @@
   import {
     GraficaNueva,
     GraficaRaices,
-    AgregaGrafica,
-    MuestraRT,
+    BorraGrafDer,
+    BorraRectaTang,
+    AnimaRT,
   } from "../tools/TrazosJSXGraph";
   import { items } from "../tools/datosItems";
 
   let latex = "\\frac{x^3-3x+1}{x^2-4}";
   let msg = "";
-  let funRac = null;
+  let disabled=false;
 
   let datosSympy = {};
 
@@ -49,21 +53,30 @@
     idRaices: [],
   };
 
-  let paramRz = {
-    func: null,
-    raices: [],
-    idRaices: [],
-  };
-
-  let idFuns = [];
-  let idObjs = [];
-
-  $muestra = false;
+  let caja;
 
   const handleClick = () => {
-    console.log($latexFun);
-    Acepta();
-    $muestra = true;
+    if (!$muestra) {
+      console.log($latexFun);
+      Acepta();
+      // if ($reqid !== 0) {
+      //   window.cancelAnimationFrame($reqid);
+      //   reqid.update(() => 0);
+      // }
+      console.log("reqid vale " + $reqid);
+      caja.focus();
+    } else {
+      BorraRectaTang();
+      BorraGrafDer();
+      console.log("reqid vale antes" + $reqid);
+      if ($reqid !== 0) {
+        window.cancelAnimationFrame($reqid);
+        reqid.update(() => 0);
+      }
+      console.log("reqid vale " + $reqid);
+    }
+    muestra.update((valor) => !valor);
+    disabled=!disabled;
   };
 
   const ChecaHuecos = (cad) => {
@@ -89,6 +102,7 @@
   function Acepta() {
     console.log($latexFun);
     let cadFun = $latexFun;
+    latexFun.subscribe(valor => latex= valor);
     let cadpyt = TeXToLinealPyt.TexToPyt(cadFun, true);
     let cad = TeXToLinealPyt.TexToPyt(cadFun, false);
     let cadFunRac;
@@ -105,11 +119,11 @@
       msg = InfijaAPolaca.errores[-procesaInfija.numError];
       return;
     }
-    funRac = procesaInfija.EvalFuncRac(procesaInfija.postFija);
-    if (funRac.esPolinomio) {
-      cadFunRac = funRac.toString();
+    funRac.set(procesaInfija.EvalFuncRac(procesaInfija.postFija));
+    if ($funRac.esPolinomio) {
+      cadFunRac = $funRac.toString();
     } else {
-      cadFunRac = funRac.numP.toString() + "," + funRac.denomP.toString();
+      cadFunRac = $funRac.numP.toString() + "," + $funRac.denomP.toString();
     }
     const url =
       "http://127.0.0.1:5000/api/v1/polynomial/properties/" + cadFunRac;
@@ -131,7 +145,7 @@
         console.log(data);
         console.log(data.derivada.latex);
         data.derivada.latex = "P'\\left(x\\right)=" + data.derivada.latex;
-        ventanaY = calcExtremos((x) => funRac.Evalua(x), data.rder1);
+        ventanaY = calcExtremos((x) => $funRac.Evalua(x), data.rder1);
         boardAttributes = {
           axis: true,
           boundingbox: [
@@ -141,14 +155,12 @@
             ventanaY[0] * 1.1,
           ],
         };
-        paramFunc.func = (x) => funRac.Evalua(x);
+        paramFunc.func = (x) => $funRac.Evalua(x);
         paramFunc.name = "P";
         paramFunc.color = "green";
-        paramFunc.idFuns = idFuns;
-        idFuns = GraficaNueva($brd, paramFunc);
+        paramFunc.idFuns = $idFuns;
+        idFuns.set(GraficaNueva($brd, paramFunc));
         datosSympy = data;
-        marcado.set(false);
-        marcadoT.set(false);
         if (datosSympy.hasOwnProperty("rfun")) {
           items[0].contenido = ArrNumToString(datosSympy.rfun, 3);
           paramFunc.raices = datosSympy.rfun;
@@ -171,44 +183,37 @@
         return;
       }
       $idRaices = GraficaRaices($brd, paramFunc);
+    } else if (item === 1) {
+      BorraGrafDer();
+      BorraRectaTang();
     }
   };
 
-  const grafDer = () => {
-    marcado.set(!$marcado);
-    paramFunc.func = (x) => funRac.Derivada().Evalua(x);
-    paramFunc.name = "P'";
-    paramFunc.color = "red";
-    paramFunc.traza = $marcado;
-    idFuns = AgregaGrafica($brd, paramFunc);
-  };
-
-  const muestraRectaTang = () => {
-    marcadoT.set(!$marcadoT);
+  const animaRectaTang = () => {
     let param = {
-      func: idFuns[0],
+      func: $idFuns[0],
       deriv: (x) => funRac.Derivada().Evalua(x),
-      vxmin: datosSympy.ventanaX[0] * 0.8,
+      vxmin: datosSympy.ventanaX[0],
       vxmax: datosSympy.ventanaX[1],
       color: "blue",
-      traza: $marcadoT,
-      idObjs: idObjs,
+      idObjs: $idObjs,
     };
-    idObjs = MuestraRT($brd, param);
+    AnimaRT($brd, param);
   };
+
+  
 </script>
 
 <Container fluid>
   <MsgModal {open} {msg} on:cierra={toggle} />
   <Row>
     <Col sm={4}>
-      <CajaMath {latex} on:click={handleClick} />
+      <CajaMath {latex} {disabled} on:click={handleClick} bind:this={caja}/>
       <Acordeon
         {items}
         {ActualizaGraf}
         muestra={$muestra}
-        {grafDer}
-        {muestraRectaTang}
+        {animaRectaTang}
       />
     </Col>
     <Col sm={8}>
@@ -216,6 +221,3 @@
     </Col>
   </Row>
 </Container>
-
-<style>
-</style>

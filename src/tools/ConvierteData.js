@@ -22,7 +22,7 @@ function calcExtremos(f, arr) {
 function ArrNumToString(arr, dig) {
     let cad = " ";
     for (let i = 0; i < arr.length; i++) {
-        cad += `r${i + 1}= ${arr[i].toFixed(dig)}, `;
+        cad += `r<sub>${i + 1}</sub>= ${arr[i].toFixed(dig)}, `;
     }
     return cad.slice(0, cad.length - 2);
 }
